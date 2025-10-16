@@ -1,8 +1,8 @@
 import axios from 'axios'
 
-// Configure axios for the Vite proxy
+// Configure axios for production - use the deployed backend URL
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://boardinghouse-backend.onrender.com/api',
   headers: {
     'Content-Type': 'application/json',
   },
