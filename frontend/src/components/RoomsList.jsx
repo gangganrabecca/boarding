@@ -143,19 +143,19 @@ export default function RoomsList() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {rooms.map((room) => (
+        {rooms.filter(room => room && room.id).map((room) => (
           <div key={room.id} className="bg-background border border-border rounded-lg p-4">
             <div className="flex items-start justify-between mb-3">
-              <h3 className="font-semibold text-lg">Room {room.room_number}</h3>
+              <h3 className="font-semibold text-lg">Room {room.room_number || 'Unknown'}</h3>
               <button onClick={() => handleDelete(room.id)} className="text-red-500 hover:text-red-400">
                 Delete
               </button>
             </div>
             <div className="space-y-1 text-sm text-text-muted">
-              <p>Type: {room.room_type}</p>
-              <p>Capacity: {room.capacity} person(s)</p>
-              <p>Price: ${room.price}/month</p>
-              <p className={`font-medium ${getStatusColor(room.status)}`}>Status: {room.status.toUpperCase()}</p>
+              <p>Type: {room.room_type || 'N/A'}</p>
+              <p>Capacity: {room.capacity || 0} person(s)</p>
+              <p>Price: ${room.price || 0}/month</p>
+              <p className={`font-medium ${getStatusColor(room.status)}`}>Status: {room.status ? room.status.toUpperCase() : 'UNKNOWN'}</p>
             </div>
           </div>
         ))}

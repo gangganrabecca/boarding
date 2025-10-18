@@ -6,7 +6,9 @@ from typing import Optional, List
 import os
 import logging
 from dotenv import load_dotenv
+from contextlib import asynccontextmanager
 
+# Local imports
 from database import Neo4jConnection
 from models import (
     User, UserCreate, UserLogin, Token,
@@ -26,24 +28,13 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-app = FastAPI(title="Boardinghouse Management System")
+# Debug: Log environment variables (without sensitive data)
+logger.info("🚀 Starting Boardinghouse Management System...")
+logger.info(f"🔗 Connecting to Neo4j Aura at: {os.getenv('NEO4J_URI', 'N/A')}")
+logger.info(f"🔗 Neo4j Username: {os.getenv('NEO4J_USERNAME', 'N/A')}")
+logger.info(f"🔗 JWT Secret Key configured: {'Yes' if os.getenv('JWT_SECRET_KEY') else 'No'}")
 
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-        "https://boardinghouse-frontend.onrender.com",
-        "https://boardinghouse-backend.onrender.com"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Database connection
+# ✅ Database connection
 db = Neo4jConnection(
     uri=os.getenv("NEO4J_URI"),
     user=os.getenv("NEO4J_USERNAME"),
@@ -52,51 +43,87 @@ db = Neo4jConnection(
 
 # Database dependency
 def get_database():
-    return db
-
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
-
+    try:
+        # Ensure database is connected
+        if db.driver is None:
+            db.connect()
+        return db
+    except Exception as e:
+        logger.error(f"Database connection error: {e}")
+        raise HTTPException(status_code=500, detail="Database connection unavailable")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("🚀 Starting Boardinghouse Management System...")
-    logger.info(f"🔗 Connecting to Neo4j Aura at: {os.getenv('NEO4J_URI', 'N/A')}")
-    
+
     try:
-        # Connect to database with timeout protection
-        db.connect()
-        logger.info("✅ Neo4j Aura database connected successfully!")
-        
-        # Create constraints and indexes (with error handling)
-        try:
-            db.create_constraints()
-            logger.info("🔒 Database constraints created/verified")
-        except Exception as constraint_error:
-            logger.warning(f"⚠️ Could not create constraints: {constraint_error}")
-            logger.info("ℹ️ Application will continue without database constraints")
-        
-        # Test database accessibility
-        try:
-            with db.driver.session() as session:
-                result = session.run("RETURN 'Database operational' as status")
-                record = result.single()
-                logger.info(f"🗄️ Database status: {record['status']}")
-        except Exception as test_error:
-            logger.warning(f"⚠️ Database test failed: {test_error}")
-            logger.info("ℹ️ Application will continue with limited database functionality")
-            
+        # Connect to database with timeout
+        logger.info(f"🔗 Connecting to Neo4j Aura at: {os.getenv('NEO4J_URI', 'N/A')}")
+
+        # Use a timeout for database connection
+        import asyncio
+
+        async def connect_with_timeout():
+            try:
+                # Try to connect with a reasonable timeout
+                loop = asyncio.get_event_loop()
+                result = await asyncio.wait_for(
+                    loop.run_in_executor(None, db.connect),
+                    timeout=10.0
+                )
+                return True
+            except asyncio.TimeoutError:
+                logger.error("❌ Database connection timed out")
+                return False
+            except Exception as e:
+                logger.error(f"❌ Database connection failed: {e}")
+                return False
+
+        connected = await connect_with_timeout()
+
+        if connected:
+            logger.info("✅ Database connection successful")
+
+            # Test database connectivity (non-blocking)
+            try:
+                loop = asyncio.get_event_loop()
+                test_result = await asyncio.wait_for(
+                    loop.run_in_executor(None, test_database_connection),
+                    timeout=5.0
+                )
+                if test_result:
+                    logger.info("✅ Database operational test passed")
+                else:
+                    logger.warning("⚠️ Database operational test failed")
+            except asyncio.TimeoutError:
+                logger.warning("⚠️ Database operational test timed out")
+            except Exception as e:
+                logger.warning(f"⚠️ Database operational test error: {e}")
+
+            # Create constraints (non-blocking)
+            try:
+                loop = asyncio.get_event_loop()
+                await asyncio.wait_for(
+                    loop.run_in_executor(None, db.create_constraints),
+                    timeout=5.0
+                )
+                logger.info("🔒 Database constraints created/verified")
+            except asyncio.TimeoutError:
+                logger.warning("⚠️ Database constraint creation timed out")
+            except Exception as constraint_error:
+                logger.warning(f"⚠️ Could not create constraints: {constraint_error}")
+                logger.info("ℹ️ Application will continue without database constraints")
+        else:
+            logger.error("❌ Could not establish database connection")
+            logger.warning("⚠️ Application starting in LIMITED MODE - Database features will not work")
+
     except Exception as e:
-        logger.error(f"❌ Failed to connect to Neo4j Aura: {e}")
-        logger.warning("⚠️ Application starting in LIMITED MODE - Database features will not work")
-        logger.info("💡 To enable full functionality, please check:")
-        logger.info("   • Neo4j Aura instance status")
-        logger.info("   • Network connectivity")
-        logger.info("   • Database credentials")
-    
+        logger.error(f"❌ Unexpected error during startup: {e}")
+        logger.warning("⚠️ Application starting in LIMITED MODE")
+
     logger.info("🎉 Application startup complete!")
     yield
-    
+
     # Shutdown
     logger.info("🔌 Shutting down application...")
     try:
@@ -106,193 +133,259 @@ async def lifespan(app: FastAPI):
         logger.warning(f"⚠️ Error closing database connection: {e}")
         logger.info("ℹ️ Application shutdown complete")
 
+def test_database_connection():
+    """Test database connectivity"""
+    try:
+        with db.driver.session() as session:
+            result = session.run("RETURN 'Database operational' as status")
+            record = result.single()
+            return record['status'] == 'Database operational'
+    except Exception:
+        return False
+
 app = FastAPI(title="Boardinghouse Management System", lifespan=lifespan)
 
-# Authentication endpoints
+# ✅ CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "https://project-msa1.onrender.com",
+        "https://projectbhsystem.onrender.com"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.post("/api/auth/register", response_model=Token)
-async def register(user: UserCreate):
-    # Check if user exists
-    existing_user = db.get_user_by_email(user.email)
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Create user
-    hashed_password = get_password_hash(user.password)
-    user_id = db.create_user(user.email, user.username, hashed_password, user.role)
-    
-    # Create access token
-    access_token = create_access_token(data={"sub": user.email, "role": user.role})
-    return {"access_token": access_token, "token_type": "bearer"}
+async def register(user: UserCreate, database = Depends(get_database)):
+    try:
+        # Check if user exists
+        existing_user = database.get_user_by_email(user.email)
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+        # Create user
+        hashed_password = get_password_hash(user.password)
+        logger.info(f"Creating user: {user.email} with role: {user.role}")
+
+        try:
+            user_id = database.create_user(user.email, user.username, hashed_password, user.role)
+            logger.info(f"User created successfully with ID: {user_id}")
+        except Exception as db_error:
+            logger.error(f"Database error creating user: {db_error}")
+            raise HTTPException(status_code=500, detail=f"Failed to create user in database: {str(db_error)}")
+
+        # Create access token
+        try:
+            access_token = create_access_token(data={"sub": user.email, "role": user.role})
+            logger.info(f"JWT token created successfully for user: {user.email}")
+        except Exception as jwt_error:
+            logger.error(f"JWT creation error: {jwt_error}")
+            raise HTTPException(status_code=500, detail=f"Failed to create authentication token: {str(jwt_error)}")
+
+        return {"access_token": access_token, "token_type": "bearer"}
+
+    except Exception as e:
+        logger.error(f"Registration error: {e}")
+        raise HTTPException(status_code=500, detail="Registration failed. Please try again.")
+
 
 @app.post("/api/auth/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = db.get_user_by_email(form_data.username)
-    if not user or not verify_password(form_data.password, user["password"]):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    access_token = create_access_token(data={"sub": user["email"], "role": user["role"]})
-    return {"access_token": access_token, "token_type": "bearer"}
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), database = Depends(get_database)):
+    try:
+        logger.info(f"Login attempt for user: {form_data.username}")
+
+        # Get user from database
+        try:
+            user = database.get_user_by_email(form_data.username)
+            logger.info(f"User lookup result: {'Found' if user else 'Not found'}")
+        except Exception as db_error:
+            logger.error(f"Database error during user lookup: {db_error}")
+            raise HTTPException(status_code=500, detail="Database connection error")
+
+        if not user:
+            logger.info("User not found - returning 401")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Verify password
+        try:
+            password_valid = verify_password(form_data.password, user["password"])
+            logger.info(f"Password verification result: {password_valid}")
+        except Exception as pw_error:
+            logger.error(f"Password verification error: {pw_error}")
+            raise HTTPException(status_code=500, detail="Password verification failed")
+
+        if not password_valid:
+            logger.info("Invalid password - returning 401")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Create access token
+        try:
+            access_token = create_access_token(data={"sub": user["email"], "role": user["role"]})
+            logger.info(f"JWT token created successfully for user: {user['email']}")
+        except Exception as jwt_error:
+            logger.error(f"JWT creation error: {jwt_error}")
+            raise HTTPException(status_code=500, detail="Token creation failed")
+
+        return {"access_token": access_token, "token_type": "bearer"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected login error: {e}")
+        raise HTTPException(status_code=500, detail="Login failed. Please try again.")
+
 
 @app.get("/api/auth/me")
-async def get_me(current_user: dict = Depends(get_current_user)):
+async def get_me(current_user: dict = Depends(get_current_user), database = Depends(get_database)):
     return current_user
 
-# Booking endpoints
+# ============================================
+# 🏠 BOOKING ROUTES
+# ============================================
+
 @app.post("/api/bookings", response_model=dict)
-async def create_booking(booking: BookingCreate, current_user: dict = Depends(get_current_user)):
-    # Check if room exists and is available
-    room = db.get_room_by_id(booking.room_id)
+async def create_booking(booking: BookingCreate, current_user: dict = Depends(get_current_user), database = Depends(get_database)):
+    room = database.get_room_by_id(booking.room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     if room["status"] != "available":
         raise HTTPException(status_code=400, detail="Room is not available")
-    
-    # Create booking
-    booking_id = db.create_booking(
+
+    booking_id = database.create_booking(
         user_id=current_user["id"],
         room_id=booking.room_id,
         start_date=booking.start_date,
         end_date=booking.end_date,
         duration=booking.duration
     )
-    
-    # Create notification for admin
-    db.create_notification(
+
+    database.create_notification(
         user_id=current_user["id"],
         booking_id=booking_id,
         message=f"New booking request from {current_user['username']}",
         notification_type="booking_request"
     )
-    
+
     return {"id": booking_id, "message": "Booking created successfully"}
 
+
 @app.get("/api/bookings/my", response_model=List[dict])
-async def get_my_bookings(current_user: dict = Depends(get_current_user)):
-    bookings = db.get_user_bookings(current_user["id"])
-    return bookings
+async def get_my_bookings(current_user: dict = Depends(get_current_user), database = Depends(get_database)):
+    return database.get_user_bookings(current_user["id"])
+
 
 @app.put("/api/bookings/{booking_id}", response_model=dict)
-async def update_booking(
-    booking_id: str,
-    booking: BookingUpdate,
-    current_user: dict = Depends(get_current_user)
-):
-    # Check if booking exists and belongs to user
-    existing_booking = db.get_booking_by_id(booking_id)
+async def update_booking(booking_id: str, booking: BookingUpdate, current_user: dict = Depends(get_current_user), database = Depends(get_database)):
+    existing_booking = database.get_booking_by_id(booking_id)
     if not existing_booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     if existing_booking["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
-    # Update booking
-    db.update_booking(booking_id, booking.dict(exclude_unset=True))
+
+    database.update_booking(booking_id, booking.dict(exclude_unset=True))
     return {"message": "Booking updated successfully"}
 
+
 @app.delete("/api/bookings/{booking_id}")
-async def cancel_booking(booking_id: str, current_user: dict = Depends(get_current_user)):
-    # Check if booking exists and belongs to user
-    existing_booking = db.get_booking_by_id(booking_id)
+async def cancel_booking(booking_id: str, current_user: dict = Depends(get_current_user), database = Depends(get_database)):
+    existing_booking = database.get_booking_by_id(booking_id)
     if not existing_booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     if existing_booking["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
-    # Cancel booking
-    db.update_booking(booking_id, {"status": "cancelled"})
+
+    database.update_booking(booking_id, {"status": "cancelled"})
     return {"message": "Booking cancelled successfully"}
 
-# Room endpoints
+# ============================================
+# 🏡 ROOM ROUTES
+# ============================================
+
 @app.get("/api/rooms", response_model=List[dict])
-async def get_rooms():
-    rooms = db.get_all_rooms()
-    return rooms
+async def get_rooms(database = Depends(get_database)):
+    return database.get_all_rooms()
+
 
 @app.get("/api/rooms/{room_id}", response_model=dict)
-async def get_room(room_id: str):
-    room = db.get_room_by_id(room_id)
+async def get_room(room_id: str, database = Depends(get_database)):
+    room = database.get_room_by_id(room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     return room
 
+
 @app.post("/api/rooms", response_model=dict)
-async def create_room(room: RoomCreate, current_user: dict = Depends(get_current_admin)):
-    room_id = db.create_room(
-        room_number=room.room_number,
-        room_type=room.room_type,
-        capacity=room.capacity,
-        price=room.price,
-        status=room.status
-    )
+async def create_room(room: RoomCreate, current_user: dict = Depends(get_current_admin), database = Depends(get_database)):
+    room_id = database.create_room(**room.dict())
     return {"id": room_id, "message": "Room created successfully"}
 
+
 @app.put("/api/rooms/{room_id}", response_model=dict)
-async def update_room(
-    room_id: str,
-    room: RoomUpdate,
-    current_user: dict = Depends(get_current_admin)
-):
-    existing_room = db.get_room_by_id(room_id)
-    if not existing_room:
-        raise HTTPException(status_code=404, detail="Room not found")
-    
-    db.update_room(room_id, room.dict(exclude_unset=True))
+async def update_room(room_id: str, room: RoomUpdate, current_user: dict = Depends(get_current_admin), database = Depends(get_database)):
+    database.update_room(room_id, room.dict(exclude_unset=True))
     return {"message": "Room updated successfully"}
 
+
 @app.delete("/api/rooms/{room_id}")
-async def delete_room(room_id: str, current_user: dict = Depends(get_current_admin)):
-    db.delete_room(room_id)
+async def delete_room(room_id: str, current_user: dict = Depends(get_current_admin), database = Depends(get_database)):
+    database.delete_room(room_id)
     return {"message": "Room deleted successfully"}
 
-# Tenant endpoints (Admin only)
+# ============================================
+# 👥 TENANT ROUTES (Admin only)
+# ============================================
+
 @app.get("/api/tenants", response_model=List[dict])
-async def get_tenants(current_user: dict = Depends(get_current_admin)):
-    tenants = db.get_all_tenants()
-    return tenants
+async def get_tenants(current_user: dict = Depends(get_current_admin), database = Depends(get_database)):
+    return database.get_all_tenants()
+
 
 @app.post("/api/tenants", response_model=dict)
-async def create_tenant(tenant: TenantCreate, current_user: dict = Depends(get_current_admin)):
-    tenant_id = db.create_tenant(
-        name=tenant.name,
-        email=tenant.email,
-        phone=tenant.phone,
-        room_id=tenant.room_id
-    )
+async def create_tenant(tenant: TenantCreate, current_user: dict = Depends(get_current_admin), database = Depends(get_database)):
+    tenant_id = database.create_tenant(**tenant.dict())
     return {"id": tenant_id, "message": "Tenant created successfully"}
 
-# Notification endpoints
+# ============================================
+# 🔔 NOTIFICATION ROUTES
+# ============================================
+
 @app.get("/api/notifications", response_model=List[dict])
-async def get_notifications(current_user: dict = Depends(get_current_user)):
+async def get_notifications(current_user: dict = Depends(get_current_user), database = Depends(get_database)):
     if current_user["role"] == "admin":
-        notifications = db.get_all_notifications()
-    else:
-        notifications = db.get_user_notifications(current_user["id"])
-    return notifications
+        return database.get_all_notifications()
+    return database.get_user_notifications(current_user["id"])
+
 
 @app.put("/api/notifications/{notification_id}", response_model=dict)
-async def update_notification(
-    notification_id: str,
-    notification: NotificationUpdate,
-    current_user: dict = Depends(get_current_admin)
-):
-    db.update_notification(notification_id, notification.dict(exclude_unset=True))
-    
-    # If approving/rejecting booking, update booking status
+async def update_notification(notification_id: str, notification: NotificationUpdate, current_user: dict = Depends(get_current_admin), database = Depends(get_database)):
+    database.update_notification(notification_id, notification.dict(exclude_unset=True))
+
     if notification.status in ["approved", "rejected"]:
-        notif = db.get_notification_by_id(notification_id)
+        notif = database.get_notification_by_id(notification_id)
         if notif and notif.get("booking_id"):
-            db.update_booking(notif["booking_id"], {"status": notification.status})
-            
-            # Update room status if approved
+            database.update_booking(notif["booking_id"], {"status": notification.status})
+
             if notification.status == "approved":
-                booking = db.get_booking_by_id(notif["booking_id"])
-                if booking:
-                    db.update_room(booking["room_id"], {"status": "occupied"})
-    
+                booking = database.get_booking_by_id(notif["booking_id"])
+                if booking and booking.get("room"):
+                    database.update_room(booking["room"]["id"], {"status": "occupied"})
+
     return {"message": "Notification updated successfully"}
+
+# ============================================
 
 if __name__ == "__main__":
     import uvicorn
