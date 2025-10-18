@@ -10,7 +10,7 @@ services:
     startCommand: cd backend && ./venv/bin/uvicorn main:app --host 0.0.0.0 --port 10000
     envVars:
       - key: PYTHON_VERSION
-        value: 3.9.0
+        value: 3.11.9
       - key: NEO4J_URI
         sync: false # Set in Render dashboard
       - key: NEO4J_USERNAME
@@ -31,5 +31,3 @@ services:
       - type: rewrite
         source: /api/(.*)
         destination: https://boardinghouse-backend.onrender.com/api/$1
-
-# Note: Replace "boardinghouse-backend" and "boardinghouse-frontend" with your actual Render service names
