@@ -50,7 +50,18 @@ def get_database():
         return db
     except Exception as e:
         logger.error(f"Database connection error: {e}")
-        raise HTTPException(status_code=500, detail="Database connection unavailable")
+        if "authentication" in str(e).lower() or "unauthorized" in str(e).lower():
+            raise HTTPException(
+                status_code=500,
+                detail="Database authentication failed. Please check your credentials."
+            )
+        elif "connection" in str(e).lower():
+            raise HTTPException(
+                status_code=500,
+                detail="Database connection unavailable. Please try again later."
+            )
+        else:
+            raise HTTPException(status_code=500, detail="Database connection unavailable")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -145,16 +156,34 @@ def test_database_connection():
 
 app = FastAPI(title="Boardinghouse Management System", lifespan=lifespan)
 
-# ✅ CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# ✅ CORS middleware - Environment-aware configuration
+def get_cors_origins():
+    """Get CORS origins based on environment"""
+    base_origins = [
         "http://localhost:3000",
         "http://localhost:5173",
+        "http://localhost:3001",
         "http://127.0.0.1:3000",
-        "https://project-msa1.onrender.com",
-        "https://projectbhsystem.onrender.com"
-    ],
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3001",
+    ]
+
+    # Add production frontend URL if available
+    frontend_url = os.getenv("FRONTEND_URL")
+    if frontend_url:
+        base_origins.append(frontend_url)
+    else:
+        # Fallback production URLs - update these with your actual Render URLs
+        base_origins.extend([
+            "https://project-msa1.onrender.com",
+            "https://projectbhsystem.onrender.com",
+        ])
+
+    return base_origins
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -251,6 +280,39 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), database = Dep
 @app.get("/api/auth/me")
 async def get_me(current_user: dict = Depends(get_current_user), database = Depends(get_database)):
     return current_user
+
+# ============================================
+# 🏥 HEALTH CHECK ROUTES
+# ============================================
+
+@app.get("/health")
+async def health_check(database = Depends(get_database)):
+    """Health check endpoint for deployment monitoring"""
+    try:
+        # Test database connection
+        db_status = "healthy"
+        try:
+            with database.driver.session() as session:
+                result = session.run("RETURN 'Database operational' as status")
+                record = result.single()
+                if record['status'] != 'Database operational':
+                    db_status = "unhealthy"
+        except Exception as e:
+            logger.error(f"Health check database error: {e}")
+            db_status = "unhealthy"
+
+        return {
+            "status": "healthy" if db_status == "healthy" else "unhealthy",
+            "database": db_status,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Health check error: {e}")
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        }
 
 # ============================================
 # 🏠 BOOKING ROUTES

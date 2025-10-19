@@ -118,6 +118,9 @@ class Neo4jConnection:
             return self._execute_with_retry(_create_user_internal)
         except Exception as e:
             logger.error(f"Database error in create_user: {e}")
+            # Check if it's a constraint violation (duplicate email)
+            if "ConstraintValidationFailed" in str(e) or "already exists" in str(e):
+                raise Exception("User with this email already exists")
             raise Exception("Database connection unavailable. Please try again later.")
 
     def get_user_by_email(self, email: str) -> Optional[Dict]:

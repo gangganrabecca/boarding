@@ -17,6 +17,13 @@ services:
         sync: false # Set in Render dashboard
       - key: NEO4J_PASSWORD
         sync: false # Set in Render dashboard
+      - key: JWT_SECRET_KEY
+        generateValue: true # Generate a secure random secret
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: boardinghouse-frontend
+          property: host
 
   # Frontend Service (Static Site)
   - type: web
