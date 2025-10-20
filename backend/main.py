@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 from database import Neo4jConnection
 from models import (
     User, UserCreate, UserLogin, Token,
-    booking, bookingCreate, bookingUpdate,
+    Booking, BookingCreate, BookingUpdate,
     Room, RoomCreate, RoomUpdate,
     Tenant, TenantCreate,
     Notification, NotificationUpdate
