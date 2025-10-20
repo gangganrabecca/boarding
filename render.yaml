@@ -4,7 +4,7 @@ services:
     name: boardinghouse-app
     env: python3
     buildCommand: pip install -r backend/requirements.txt && cd frontend && npm install && npm run build
-    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port 10000
+    startCommand: cd backend && python -c "import main; print('✅ App imports successfully')" && uvicorn main:app --host 0.0.0.0 --port 10000
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
