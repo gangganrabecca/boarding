@@ -227,15 +227,18 @@ async def register(user: UserCreate, database = Depends(get_database)):
     try:
         logger.info(f"Registration attempt for: {user.email}")
 
-        # Check if user exists
+        # Check if user exists - handle errors gracefully
         try:
             existing_user = database.get_user_by_email(user.email)
             if existing_user:
                 logger.warning(f"Registration failed - email already exists: {user.email}")
                 raise HTTPException(status_code=400, detail="Email already registered")
+        except HTTPException:
+            raise  # Re-raise HTTP exceptions (like 400 for duplicate email)
         except Exception as e:
-            logger.error(f"Error checking existing user: {e}")
-            raise HTTPException(status_code=500, detail="Error checking user registration status")
+            logger.error(f"Error checking existing user for {user.email}: {e}")
+            # If we can't check for existing users, assume it's a database issue
+            raise HTTPException(status_code=500, detail="Unable to verify user registration status")
 
         # Validate input data
         if not user.email or not user.username or not user.password:
@@ -253,6 +256,8 @@ async def register(user: UserCreate, database = Depends(get_database)):
         try:
             user_id = database.create_user(user.email, user.username, hashed_password, user.role)
             logger.info(f"User created successfully with ID: {user_id}")
+        except HTTPException:
+            raise  # Re-raise HTTP exceptions from database
         except Exception as db_error:
             logger.error(f"Database error creating user {user.email}: {db_error}")
             raise HTTPException(status_code=500, detail=f"Failed to create user in database: {str(db_error)}")
