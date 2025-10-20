@@ -225,20 +225,36 @@ app.add_middleware(
 @app.post("/api/auth/register", response_model=Token)
 async def register(user: UserCreate, database = Depends(get_database)):
     try:
+        logger.info(f"Registration attempt for: {user.email}")
+
         # Check if user exists
-        existing_user = database.get_user_by_email(user.email)
-        if existing_user:
-            raise HTTPException(status_code=400, detail="Email already registered")
+        try:
+            existing_user = database.get_user_by_email(user.email)
+            if existing_user:
+                logger.warning(f"Registration failed - email already exists: {user.email}")
+                raise HTTPException(status_code=400, detail="Email already registered")
+        except Exception as e:
+            logger.error(f"Error checking existing user: {e}")
+            raise HTTPException(status_code=500, detail="Error checking user registration status")
+
+        # Validate input data
+        if not user.email or not user.username or not user.password:
+            logger.warning(f"Registration failed - missing required fields for: {user.email}")
+            raise HTTPException(status_code=400, detail="Email, username, and password are required")
 
         # Create user
-        hashed_password = get_password_hash(user.password)
-        logger.info(f"Creating user: {user.email} with role: {user.role}")
+        try:
+            hashed_password = get_password_hash(user.password)
+            logger.info(f"Password hashed successfully for: {user.email}")
+        except Exception as e:
+            logger.error(f"Password hashing failed for {user.email}: {e}")
+            raise HTTPException(status_code=500, detail="Error processing password")
 
         try:
             user_id = database.create_user(user.email, user.username, hashed_password, user.role)
             logger.info(f"User created successfully with ID: {user_id}")
         except Exception as db_error:
-            logger.error(f"Database error creating user: {db_error}")
+            logger.error(f"Database error creating user {user.email}: {db_error}")
             raise HTTPException(status_code=500, detail=f"Failed to create user in database: {str(db_error)}")
 
         # Create access token
@@ -246,13 +262,16 @@ async def register(user: UserCreate, database = Depends(get_database)):
             access_token = create_access_token(data={"sub": user.email, "role": user.role})
             logger.info(f"JWT token created successfully for user: {user.email}")
         except Exception as jwt_error:
-            logger.error(f"JWT creation error: {jwt_error}")
+            logger.error(f"JWT creation error for {user.email}: {jwt_error}")
             raise HTTPException(status_code=500, detail=f"Failed to create authentication token: {str(jwt_error)}")
 
+        logger.info(f"Registration completed successfully for: {user.email}")
         return {"access_token": access_token, "token_type": "bearer"}
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Registration error: {e}")
+        logger.error(f"Unexpected registration error for {user.email}: {e}")
         raise HTTPException(status_code=500, detail="Registration failed. Please try again.")
 
 
