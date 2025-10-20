@@ -311,8 +311,15 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), database = Dep
 
 
 @app.get("/api/auth/me")
-async def get_me(current_user: dict = Depends(get_current_user), database = Depends(get_database)):
-    return current_user
+async def get_me(current_user: dict = Depends(get_current_user)):
+    """Get current user profile"""
+    return {
+        "id": current_user["id"],
+        "email": current_user["email"],
+        "username": current_user["username"],
+        "role": current_user["role"],
+        "created_at": current_user["created_at"]
+    }
 
 # ============================================
 # 🏥 HEALTH CHECK ROUTES
