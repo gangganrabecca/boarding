@@ -166,6 +166,7 @@ if os.getenv("SERVE_STATIC", "false").lower() == "true":
         logger.info(f"✅ Serving static files from: {static_path}")
     else:
         logger.warning(f"⚠️ Static files not found at: {static_path}")
+        logger.info("ℹ️ API-only mode - static files not available")
 
 # ✅ CORS middleware - Environment-aware configuration
 def get_cors_origins():
@@ -177,21 +178,13 @@ def get_cors_origins():
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:3001",
+        "https://boardinghouse-backend.onrender.com",
     ]
 
     # Add production frontend URL if available
     frontend_url = os.getenv("FRONTEND_URL")
-    if frontend_url:
+    if frontend_url and frontend_url not in base_origins:
         base_origins.append(frontend_url)
-    else:
-        # Fallback production URLs - update these with your actual Render URLs
-        base_origins.extend([
-            "https://project-msa1.onrender.com",
-            "https://projectbhsystem.onrender.com",
-            "https://boardinghouse-frontend.onrender.com",
-            "https://boardinghouse-backend.onrender.com",
-            "https://boardinghouse-app.onrender.com",
-        ])
 
     return base_origins
 

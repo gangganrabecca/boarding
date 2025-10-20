@@ -1,7 +1,7 @@
 services:
   # Single Web Service - Backend API + Static Frontend
   - type: web
-    name: boardinghouse-app
+    name: boardinghouse-backend
     env: python3
     buildCommand: pip install -r backend/requirements.txt && cd frontend && npm install && npm run build
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port 10000
@@ -18,3 +18,5 @@ services:
         generateValue: true # Generate a secure random secret
       - key: SERVE_STATIC
         value: true # Enable static file serving
+      - key: FRONTEND_URL
+        value: https://boardinghouse-backend.onrender.com
