@@ -29,6 +29,7 @@ export function AuthProvider({ children }) {
       setUser(response.data)
     } catch (error) {
       console.error("Failed to fetch user:", error)
+      // Clear token if authentication fails
       logout()
     } finally {
       setLoading(false)
@@ -36,34 +37,44 @@ export function AuthProvider({ children }) {
   }
 
   const login = async (email, password) => {
-    const formData = new FormData()
-    formData.append("username", email)
-    formData.append("password", password)
+    try {
+      const response = await api.post("/auth/login", `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      })
+      const { access_token } = response.data
 
-    const response = await api.post("/auth/login", formData)
-    const { access_token } = response.data
+      localStorage.setItem("token", access_token)
+      setToken(access_token)
+      api.defaults.headers.common["Authorization"] = `Bearer ${access_token}`
 
-    localStorage.setItem("token", access_token)
-    setToken(access_token)
-    api.defaults.headers.common["Authorization"] = `Bearer ${access_token}`
-
-    await fetchUser()
+      await fetchUser()
+    } catch (error) {
+      console.error("Login error:", error)
+      throw error
+    }
   }
 
   const register = async (email, username, password, role = "user") => {
-    const response = await api.post("/auth/register", {
-      email,
-      username,
-      password,
-      role,
-    })
-    const { access_token } = response.data
+    try {
+      const response = await api.post("/auth/register", {
+        email,
+        username,
+        password,
+        role,
+      })
+      const { access_token } = response.data
 
-    localStorage.setItem("token", access_token)
-    setToken(access_token)
-    api.defaults.headers.common["Authorization"] = `Bearer ${access_token}`
+      localStorage.setItem("token", access_token)
+      setToken(access_token)
+      api.defaults.headers.common["Authorization"] = `Bearer ${access_token}`
 
-    await fetchUser()
+      await fetchUser()
+    } catch (error) {
+      console.error("Registration error:", error)
+      throw error
+    }
   }
 
   const logout = () => {

@@ -3,7 +3,7 @@ import axios from 'axios'
 // Configure axios for development - use relative URLs to work with Vite proxy
 // In production, this will use the deployed backend URL
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_URL || 'http://localhost:8000/api'),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -30,6 +30,12 @@ api.interceptors.response.use(
   },
   (error) => {
     console.error('API Error:', error)
+    // Handle authentication errors
+    if (error.response?.status === 401) {
+      // Clear token and redirect to login if needed
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+    }
     return Promise.reject(error)
   }
 )
