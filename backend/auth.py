@@ -54,28 +54,39 @@ def get_db_connection():
         _db_connection.connect()
     return _db_connection
 
+# Simple database dependency function for use in auth functions
+def get_database_for_auth():
+    """Get database connection for auth functions"""
+    return Neo4jConnection(
+        os.getenv("NEO4J_URI"),
+        os.getenv("NEO4J_USERNAME"),
+        os.getenv("NEO4J_PASSWORD")
+    )
+
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     payload = decode_access_token(token)
     if payload is None:
         raise credentials_exception
-    
+
     email: str = payload.get("sub")
     if email is None:
         raise credentials_exception
-    
-    # Use fixed database connection
-    db = get_db_connection()
+
+    # Use database connection for auth
+    db = get_database_for_auth()
+    if db.driver is None:
+        db.connect()
     user = db.get_user_by_email(email)
-    
+
     if user is None:
         raise credentials_exception
-    
+
     return user
 
 async def get_current_admin(current_user: dict = Depends(get_current_user)):
