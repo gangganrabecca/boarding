@@ -138,6 +138,20 @@ async def lifespan(app: FastAPI):
             except Exception as constraint_error:
                 logger.warning(f"⚠️ Could not create constraints: {constraint_error}")
                 logger.info("ℹ️ Application will continue without database constraints")
+
+            # Ensure admin user exists
+            try:
+                loop = asyncio.get_event_loop()
+                await asyncio.wait_for(
+                    loop.run_in_executor(None, ensure_admin_user),
+                    timeout=5.0
+                )
+                logger.info("👑 Admin user verified/created")
+            except asyncio.TimeoutError:
+                logger.warning("⚠️ Admin user creation timed out")
+            except Exception as admin_error:
+                logger.error(f"❌ Could not create admin user: {admin_error}")
+                logger.warning("⚠️ Admin user creation failed")
         else:
             logger.error("❌ Could not establish database connection")
             logger.warning("⚠️ Application starting in LIMITED MODE - Database features will not work")
@@ -166,6 +180,32 @@ def test_database_connection():
             record = result.single()
             return record['status'] == 'Database operational'
     except Exception:
+        return False
+
+def ensure_admin_user():
+    """Ensure admin user exists with fixed credentials"""
+    try:
+        # Check if admin user exists
+        existing_admin = db.get_user_by_email("admin@boardinghouse.com")
+
+        if existing_admin:
+            logger.info("✅ Admin user already exists")
+            return True
+
+        # Create admin user with fixed credentials
+        admin_email = "admin@boardinghouse.com"
+        admin_username = "admin"
+        admin_password = "admin123"  # Fixed password for admin
+        admin_role = "admin"
+
+        hashed_password = get_password_hash(admin_password)
+        admin_id = db.create_user(admin_email, admin_username, hashed_password, admin_role)
+
+        logger.info(f"✅ Admin user created successfully with ID: {admin_id}")
+        return True
+
+    except Exception as e:
+        logger.error(f"❌ Error creating admin user: {e}")
         return False
 
 app = FastAPI(title="Boardinghouse Management System", lifespan=lifespan)
