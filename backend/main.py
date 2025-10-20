@@ -337,13 +337,17 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), database = Dep
 @app.get("/api/auth/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
     """Get current user profile"""
-    return {
-        "id": current_user["id"],
-        "email": current_user["email"],
-        "username": current_user["username"],
-        "role": current_user["role"],
-        "created_at": current_user["created_at"]
-    }
+    try:
+        return {
+            "id": current_user["id"],
+            "email": current_user["email"],
+            "username": current_user["username"],
+            "role": current_user["role"],
+            "created_at": current_user["created_at"]
+        }
+    except Exception as e:
+        logger.error(f"Error fetching user profile: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch user profile")
 
 # ============================================
 # 🏥 HEALTH CHECK ROUTES

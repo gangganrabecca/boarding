@@ -5,6 +5,7 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 import os
+import logging
 from dotenv import load_dotenv
 from database import Neo4jConnection
 
@@ -16,6 +17,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
@@ -64,30 +68,41 @@ def get_database_for_auth():
     )
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    try:
+        credentials_exception = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    payload = decode_access_token(token)
-    if payload is None:
-        raise credentials_exception
+        payload = decode_access_token(token)
+        if payload is None:
+            raise credentials_exception
 
-    email: str = payload.get("sub")
-    if email is None:
-        raise credentials_exception
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
 
-    # Use database connection for auth
-    db = get_database_for_auth()
-    if db.driver is None:
-        db.connect()
-    user = db.get_user_by_email(email)
+        # Use database connection for auth
+        db = get_database_for_auth()
+        if db.driver is None:
+            db.connect()
+        user = db.get_user_by_email(email)
 
-    if user is None:
-        raise credentials_exception
+        if user is None:
+            raise credentials_exception
 
-    return user
+        return user
+
+    except HTTPException:
+        raise  # Re-raise authentication errors
+    except Exception as e:
+        logger.error(f"Error in get_current_user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication failed",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 async def get_current_admin(current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "admin":
