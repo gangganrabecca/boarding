@@ -177,6 +177,8 @@ def get_cors_origins():
         base_origins.extend([
             "https://project-msa1.onrender.com",
             "https://projectbhsystem.onrender.com",
+            "https://boardinghouse-frontend.onrender.com",
+            "https://boardinghouse-backend.onrender.com",
         ])
 
     return base_origins
