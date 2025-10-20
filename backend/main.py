@@ -2,19 +2,31 @@ from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from datetime import datetime, timedelta
 from typing import Optional, List
 import uvicorn
 import os
 import logging
+import sys
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
+
+# Configure logging first
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Local imports
 from database import Neo4jConnection
 from models import (
     User, UserCreate, UserLogin, Token,
-    Booking, BookingCreate, BookingUpdate,
+    booking, bookingCreate, bookingUpdate,
     Room, RoomCreate, RoomUpdate,
     Tenant, TenantCreate,
     Notification, NotificationUpdate
