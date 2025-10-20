@@ -1,0 +1,37 @@
+services:
+  # Backend API Service
+  - type: web
+    name: boardinghouse-backend
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port 10000
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: NEO4J_URI
+        sync: false # Set in Render dashboard
+      - key: NEO4J_USERNAME
+        sync: false # Set in Render dashboard
+      - key: NEO4J_PASSWORD
+        sync: false # Set in Render dashboard
+      - key: JWT_SECRET_KEY
+        generateValue: true # Generate a secure random secret
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: boardinghouse-frontend
+          property: host
+
+  # Frontend Service (Static Site)
+  - type: web
+    name: boardinghouse-frontend
+    env: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://boardinghouse-backend.onrender.com/api
+    routes:
+      - type: rewrite
+        source: /api/(.*)
+        destination: https://boardinghouse-backend.onrender.com/api/$1

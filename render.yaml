@@ -1,9 +1,9 @@
 services:
-  # Backend API Service
+  # Single Web Service - Backend API + Static Frontend
   - type: web
-    name: boardinghouse-backend
+    name: boardinghouse-app
     env: python
-    buildCommand: pip install -r backend/requirements.txt
+    buildCommand: pip install -r backend/requirements.txt && cd frontend && npm install && npm run build
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port 10000
     envVars:
       - key: PYTHON_VERSION
@@ -16,22 +16,5 @@ services:
         sync: false # Set in Render dashboard
       - key: JWT_SECRET_KEY
         generateValue: true # Generate a secure random secret
-      - key: FRONTEND_URL
-        fromService:
-          type: web
-          name: boardinghouse-frontend
-          property: host
-
-  # Frontend Service (Static Site)
-  - type: web
-    name: boardinghouse-frontend
-    env: static
-    buildCommand: cd frontend && npm install && npm run build
-    staticPublishPath: ./frontend/dist
-    envVars:
-      - key: VITE_API_URL
-        value: https://boardinghouse-backend.onrender.com/api
-    routes:
-      - type: rewrite
-        source: /api/(.*)
-        destination: https://boardinghouse-backend.onrender.com/api/$1
+      - key: SERVE_STATIC
+        value: true # Enable static file serving

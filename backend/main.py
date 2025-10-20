@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
 from datetime import datetime, timedelta
 from typing import Optional, List
 import os
@@ -23,6 +24,7 @@ from auth import (
 )
 
 # Configure logging
+{{ ... }}
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -156,6 +158,16 @@ def test_database_connection():
 
 app = FastAPI(title="Boardinghouse Management System", lifespan=lifespan)
 
+# Serve static files in production (when SERVE_STATIC is True)
+if os.getenv("SERVE_STATIC", "false").lower() == "true":
+    import os
+    static_path = os.path.join(os.getcwd(), "../frontend/dist")
+    if os.path.exists(static_path):
+        app.mount("/", StaticFiles(directory=static_path, html=True), name="static")
+        logger.info(f"✅ Serving static files from: {static_path}")
+    else:
+        logger.warning(f"⚠️ Static files not found at: {static_path}")
+
 # ✅ CORS middleware - Environment-aware configuration
 def get_cors_origins():
     """Get CORS origins based on environment"""
@@ -179,6 +191,7 @@ def get_cors_origins():
             "https://projectbhsystem.onrender.com",
             "https://boardinghouse-frontend.onrender.com",
             "https://boardinghouse-backend.onrender.com",
+            "https://boardinghouse-app.onrender.com",
         ])
 
     return base_origins
