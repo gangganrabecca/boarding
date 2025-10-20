@@ -3,11 +3,9 @@ services:
   - type: web
     name: boardinghouse-backend
     env: python
-    buildCommand: |
-      cd backend &&
-      python -m venv venv &&
-      ./venv/bin/pip install -r requirements.txt
-    startCommand: cd backend && ./venv/bin/uvicorn main:app --host 0.0.0.0 --port 10000
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port 10000
+    workingDirectory: /opt/render/project/src/backend
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
