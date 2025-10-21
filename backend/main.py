@@ -203,43 +203,6 @@ def ensure_admin_user():
 
 app = FastAPI(title="Boardinghouse Management System", lifespan=lifespan)
 
-# Serve static files in production (when SERVE_STATIC is True)
-# Mount static files only for non-API routes to avoid conflicts
-if os.getenv("SERVE_STATIC", "false").lower() == "true":
-    import os
-    from fastapi.staticfiles import StaticFiles
-
-    static_path = os.path.join(os.getcwd(), "../frontend/dist")
-    if os.path.exists(static_path):
-        # Mount static files with a more specific path to avoid API conflicts
-        app.mount("/assets", StaticFiles(directory=os.path.join(static_path, "assets")), name="static-assets")
-
-        # Create a custom route for serving the main index.html for SPA routing
-        from fastapi.responses import FileResponse
-
-        @app.get("/")
-        async def serve_spa():
-            index_path = os.path.join(static_path, "index.html")
-            if os.path.exists(index_path):
-                return FileResponse(index_path)
-            return {"error": "Frontend not found"}
-
-        @app.get("/{full_path:path}")
-        async def serve_spa_catchall(full_path: str):
-            # Serve index.html for any non-API routes (SPA routing)
-            if not full_path.startswith("api/") and not full_path.startswith("health"):
-                index_path = os.path.join(static_path, "index.html")
-                if os.path.exists(index_path):
-                    return FileResponse(index_path)
-            # Let API routes handle themselves - don't raise 404 for API routes
-            from fastapi import HTTPException
-            raise HTTPException(status_code=404, detail="Not found")
-
-        logger.info(f"✅ Serving static files from: {static_path}")
-    else:
-        logger.warning(f"⚠️ Static files not found at: {static_path}")
-        logger.info("ℹ️ API-only mode - static files not available")
-
 # ✅ CORS middleware - Environment-aware configuration
 def get_cors_origins():
     """Get CORS origins based on environment"""
@@ -575,6 +538,47 @@ async def update_notification(notification_id: str, notification: NotificationUp
                     database.update_room(booking["room"]["id"], {"status": "occupied"})
 
     return {"message": "Notification updated successfully"}
+
+# ============================================
+# 🌐 STATIC FILE SERVING (SPA Support)
+# ============================================
+
+# Serve static files in production (when SERVE_STATIC is True)
+# Mount static files only for non-API routes to avoid conflicts
+if os.getenv("SERVE_STATIC", "false").lower() == "true":
+    import os
+    from fastapi.staticfiles import StaticFiles
+
+    static_path = os.path.join(os.getcwd(), "../frontend/dist")
+    if os.path.exists(static_path):
+        # Mount static files with a more specific path to avoid API conflicts
+        app.mount("/assets", StaticFiles(directory=os.path.join(static_path, "assets")), name="static-assets")
+
+        # Create a custom route for serving the main index.html for SPA routing
+        from fastapi.responses import FileResponse
+
+        @app.get("/")
+        async def serve_spa():
+            index_path = os.path.join(static_path, "index.html")
+            if os.path.exists(index_path):
+                return FileResponse(index_path)
+            return {"error": "Frontend not found"}
+
+        @app.get("/{full_path:path}")
+        async def serve_spa_catchall(full_path: str):
+            # Serve index.html for any non-API routes (SPA routing)
+            if not full_path.startswith("api/") and not full_path.startswith("health"):
+                index_path = os.path.join(static_path, "index.html")
+                if os.path.exists(index_path):
+                    return FileResponse(index_path)
+            # Let API routes handle themselves - don't raise 404 for API routes
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Not found")
+
+        logger.info(f"✅ Serving static files from: {static_path}")
+    else:
+        logger.warning(f"⚠️ Static files not found at: {static_path}")
+        logger.info("ℹ️ API-only mode - static files not available")
 
 # ============================================
 
