@@ -227,11 +227,11 @@ if os.getenv("SERVE_STATIC", "false").lower() == "true":
         @app.get("/{full_path:path}")
         async def serve_spa_catchall(full_path: str):
             # Serve index.html for any non-API routes (SPA routing)
-            if not full_path.startswith("api/"):
+            if not full_path.startswith("api/") and not full_path.startswith("health"):
                 index_path = os.path.join(static_path, "index.html")
                 if os.path.exists(index_path):
                     return FileResponse(index_path)
-            # Let API routes handle themselves
+            # Let API routes handle themselves - don't raise 404 for API routes
             from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="Not found")
 
@@ -381,31 +381,18 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), database = Dep
 
 
 @app.get("/api/auth/me")
-async def get_me(request: Request):
-    """Get current user profile - simplified version for debugging"""
+async def get_me(current_user: dict = Depends(get_current_user)):
+    """Get current user profile"""
     try:
-        # Get authorization header
-        authorization = request.headers.get("Authorization")
-        if not authorization or not authorization.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="No token provided")
-
-        token = authorization.split(" ")[1]
-
-        # Decode token (simplified - just check if it exists)
-        if not token:
-            raise HTTPException(status_code=401, detail="Invalid token")
-
-        # For now, return a test response to verify endpoint works
         return {
-            "message": "Authentication endpoint is working",
-            "token_provided": True,
-            "status": "authenticated"
+            "id": current_user["id"],
+            "email": current_user["email"],
+            "username": current_user["username"],
+            "role": current_user["role"],
+            "created_at": current_user["created_at"]
         }
-
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Error in get_me endpoint: {e}")
+        logger.error(f"Error fetching user profile: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch user profile")
 
 @app.get("/api/auth/me/full")

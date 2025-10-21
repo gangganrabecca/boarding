@@ -19,17 +19,12 @@ export default function Login() {
 
     try {
       await login(email, password)
-      // Navigation will be handled by useEffect in App.jsx
+      navigate(user?.role === "admin" ? "/admin" : "/dashboard")
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to login")
     } finally {
       setLoading(false)
     }
-  }
-
-  // Redirect if already logged in
-  if (user) {
-    navigate(user.role === "admin" ? "/admin" : "/dashboard")
   }
 
   return (
@@ -76,7 +71,7 @@ export default function Login() {
           </form>
 
           <p className="text-center text-text-muted mt-6">
-            Don't have an account?{" "}
+            Don’t have an account?{" "}
             <Link to="/register" className="text-primary hover:underline">
               Sign up
             </Link>

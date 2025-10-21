@@ -3,7 +3,7 @@ import axios from 'axios'
 // Configure axios for development - use relative URLs to work with Vite proxy
 // In production, this will use the deployed backend URL
 const api = axios.create({
-  baseURL: import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_URL || 'https://boardinghouse-app.onrender.com/api'),
+  baseURL: import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_URL || '/api'),
   headers: {
     'Content-Type': 'application/json',
   },
