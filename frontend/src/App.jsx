@@ -1,6 +1,7 @@
 "use client"
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { AuthProvider, useAuth } from "./context/AuthContext"
 import Login from "./pages/Login"
 import Register from "./pages/Register"
@@ -23,6 +24,23 @@ function PrivateRoute({ children, adminOnly = false }) {
   }
 
   return children
+}
+
+function HomePage() {
+  const { user, loading } = useAuth()
+  const navigate = useNavigate()
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  }
+
+  if (!user) {
+    navigate("/login")
+    return null
+  }
+
+  navigate(user.role === "admin" ? "/admin" : "/dashboard")
+  return null
 }
 
 function App() {
@@ -48,7 +66,7 @@ function App() {
               </PrivateRoute>
             }
           />
-          <Route path="/" element={<Navigate to="/login" />} />
+          <Route path="/" element={<HomePage />} />
         </Routes>
       </Router>
     </AuthProvider>

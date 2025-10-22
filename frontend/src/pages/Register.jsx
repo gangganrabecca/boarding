@@ -4,15 +4,20 @@ import { useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 
-export default function Register() {
+function RegisterPage() {
   const [email, setEmail] = useState("")
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
-  const [role, setRole] = useState("user")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const { register } = useAuth()
+  const { register, user } = useAuth()
   const navigate = useNavigate()
+
+  // Redirect if already logged in
+  if (user) {
+    navigate(user.role === "admin" ? "/admin" : "/dashboard")
+    return null
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -20,8 +25,8 @@ export default function Register() {
     setLoading(true)
 
     try {
-      await register(email, username, password, role)
-      navigate(role === "admin" ? "/admin" : "/dashboard")
+      const userData = await register(email, username, password, "user")
+      navigate("/dashboard")
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to register")
     } finally {
@@ -74,18 +79,6 @@ export default function Register() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Role</label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-
             <button
               type="submit"
               disabled={loading}
@@ -105,4 +98,8 @@ export default function Register() {
       </div>
     </div>
   )
+}
+
+export default function Register() {
+  return <RegisterPage />
 }

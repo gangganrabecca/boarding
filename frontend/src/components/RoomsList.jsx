@@ -67,16 +67,21 @@ export default function RoomsList() {
   }
 
   if (loading) {
-    return <div>Loading rooms...</div>
+    return (
+      <div className="flex items-center justify-center py-6 md:py-8">
+        <div className="animate-spin rounded-full h-6 w-6 md:h-8 md:w-8 border-b-2 border-primary"></div>
+        <span className="ml-2 text-sm md:text-base">Loading rooms...</span>
+      </div>
+    )
   }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">Rooms</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 md:mb-6">
+        <h2 className="text-xl md:text-2xl font-bold">Rooms</h2>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors"
+          className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors text-sm md:text-base w-full sm:w-auto"
         >
           {showForm ? "Cancel" : "Add Room"}
         </button>
@@ -84,7 +89,7 @@ export default function RoomsList() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-background border border-border rounded-lg p-4 mb-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">Room Number</label>
               <input
@@ -135,27 +140,34 @@ export default function RoomsList() {
 
           <button
             type="submit"
-            className="w-full bg-primary hover:bg-primary-hover text-white font-medium py-2 px-4 rounded-lg transition-colors"
+            className="w-full bg-primary hover:bg-primary-hover text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm md:text-base"
           >
             Create Room
           </button>
         </form>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
         {rooms.filter(room => room && room.id).map((room) => (
           <div key={room.id} className="bg-background border border-border rounded-lg p-4">
             <div className="flex items-start justify-between mb-3">
-              <h3 className="font-semibold text-lg">Room {room.room_number || 'Unknown'}</h3>
-              <button onClick={() => handleDelete(room.id)} className="text-red-500 hover:text-red-400">
+              <h3 className="font-semibold text-lg md:text-xl">Room {room.room_number || 'Unknown'}</h3>
+              <button
+                onClick={() => handleDelete(room.id)}
+                className="text-red-500 hover:text-red-400 text-xs md:text-sm px-2 py-1 rounded hover:bg-red-50 transition-colors"
+              >
                 Delete
               </button>
             </div>
             <div className="space-y-1 text-sm text-text-muted">
-              <p>Type: {room.room_type || 'N/A'}</p>
-              <p>Capacity: {room.capacity || 0} person(s)</p>
-              <p>Price: ${room.price || 0}/month</p>
-              <p className={`font-medium ${getStatusColor(room.status)}`}>Status: {room.status ? room.status.toUpperCase() : 'UNKNOWN'}</p>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                <p><span className="font-medium">Type:</span> {room.room_type || 'N/A'}</p>
+                <p><span className="font-medium">Capacity:</span> {room.capacity || 0} person(s)</p>
+              </div>
+              <p><span className="font-medium">Price:</span> ₱{room.price || 0}/month</p>
+              <p className={`font-medium ${getStatusColor(room.status)}`}>
+                Status: {room.status ? room.status.toUpperCase() : 'UNKNOWN'}
+              </p>
             </div>
           </div>
         ))}

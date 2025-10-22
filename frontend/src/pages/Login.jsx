@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 
-export default function Login() {
+function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -12,16 +12,26 @@ export default function Login() {
   const { login, user } = useAuth()
   const navigate = useNavigate()
 
+  // Redirect if already logged in
+  if (user) {
+    navigate(user.role === "admin" ? "/admin" : "/dashboard")
+    return null
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError("")
     setLoading(true)
 
     try {
-      await login(email, password)
-      navigate(user?.role === "admin" ? "/admin" : "/dashboard")
+      const userData = await login(email, password)
+      navigate(userData?.role === "admin" ? "/admin" : "/dashboard")
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to login")
+      if (err.response?.status === 503) {
+        setError("Database temporarily unavailable. Please try again in a few moments.")
+      } else {
+        setError(err.response?.data?.detail || "Failed to login")
+      }
     } finally {
       setLoading(false)
     }
@@ -80,4 +90,8 @@ export default function Login() {
       </div>
     </div>
   )
+}
+
+export default function Login() {
+  return <LoginPage />
 }

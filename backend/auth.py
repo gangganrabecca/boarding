@@ -61,11 +61,20 @@ def get_db_connection():
 # Simple database dependency function for use in auth functions
 def get_database_for_auth():
     """Get database connection for auth functions"""
-    return Neo4jConnection(
+    from database import Neo4jConnection
+    import os
+
+    db = Neo4jConnection(
         os.getenv("NEO4J_URI"),
         os.getenv("NEO4J_USERNAME"),
         os.getenv("NEO4J_PASSWORD")
     )
+
+    # Connect if not already connected
+    if db.driver is None:
+        db.connect()
+
+    return db
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
@@ -85,8 +94,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
         # Use database connection for auth
         db = get_database_for_auth()
-        if db.driver is None:
-            db.connect()
         user = db.get_user_by_email(email)
 
         if user is None:

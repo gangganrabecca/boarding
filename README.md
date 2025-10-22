@@ -6,6 +6,7 @@ A complete full-stack boardinghouse management system with FastAPI backend, Reac
 
 ### User Features
 - User registration and login with JWT authentication
+- **Browse available rooms** before booking
 - Book rooms with date selection and duration
 - View and manage personal bookings
 - Cancel pending bookings
@@ -108,26 +109,28 @@ npm install
 # No additional configuration needed
 \`\`\`
 
-### Step 5: Run the Application
+### Step 5: Run the Application (Alternative - Mock Backend)
 
-#### Terminal 1 - Start Backend:
+If you don't have access to Neo4j Aura or want to test without the database:
 
-\`\`\`bash
+#### Terminal 1 - Start Mock Backend (No Database Required):
+```bash
 cd backend
-source venv/bin/activate
-python main.py
-\`\`\`
-
-The backend will start on http://localhost:8000
+python minimal_app.py
+```
 
 #### Terminal 2 - Start Frontend:
-
-\`\`\`bash
+```bash
 cd frontend
 npm run dev
-\`\`\`
+```
 
-The frontend will start on http://localhost:3000
+**Note:** The mock backend provides full API functionality with sample data, perfect for testing and development without database setup.
+
+### Step 6: Test Connectivity
+```bash
+./test_connectivity.sh
+```
 
 ### Step 6: Access the Application
 
@@ -150,31 +153,91 @@ Open your browser and navigate to:
    - Password: user123
    - Role: User
 
-## Usage Guide
+**Or use the pre-created accounts:**
 
-### Admin Workflow
+**Admin Account (Fixed Credentials):**
+- Email: admin@boardinghouse.com
+- Password: admin123
 
-1. Login with admin credentials
-2. Navigate to "Rooms" tab
-3. Click "Add Room" to create rooms:
-   - Room Number: 101
-   - Room Type: Single
-   - Capacity: 1
-   - Price: 500
-   - Status: Available
+**Note:** The admin account is automatically created when the backend starts up using the credentials from the `.env` file.
 
-4. Navigate to "Tenants" tab to add tenant information
-5. Navigate to "Notifications" tab to review and approve/reject booking requests
+## 📱 Mobile Responsiveness Features
 
-### User Workflow
+The application is fully optimized for mobile devices with:
 
-1. Login with user credentials
-2. Navigate to "Booking" tab
-3. Select an available room
-4. Choose start date, end date, and duration
-5. Submit booking request
-6. Navigate to "My Bookings" to view booking status
-7. Navigate to "Notifications" to see approval status
+### 🎯 Mobile-First Design
+- **Responsive Navigation**: Hamburger menu with smooth animations
+- **Touch-Friendly Interface**: 44px minimum touch targets for all interactive elements
+- **Adaptive Layouts**: Grid systems that stack properly on mobile devices
+- **Mobile Typography**: Responsive text sizes for optimal readability
+- **Touch Scrolling**: Smooth scrolling with proper overflow handling
+
+### 📐 Responsive Breakpoints
+- **Mobile**: < 640px (sm) - Single column layouts, stacked navigation
+- **Tablet**: 640px - 1024px (md/lg) - Two column layouts, condensed navigation
+- **Desktop**: > 1024px (xl) - Full multi-column layouts
+
+### ✨ Mobile Features Added
+- ✅ Overview dashboard moved below tab navigation (as requested)
+- ✅ Responsive dashboard statistics with mobile-optimized cards
+- ✅ Mobile-friendly forms with proper field stacking
+- ✅ Touch-optimized buttons and navigation elements
+- ✅ Responsive data tables and information displays
+- ✅ Mobile-optimized loading states and error messages
+
+### 🧪 Mobile Testing
+1. Open http://localhost:3000 in your browser
+2. Use browser dev tools (F12) to simulate mobile devices
+3. Test on actual mobile devices for best experience
+4. Run `./test_connectivity.sh` to verify all endpoints work correctly
+
+## How It Works
+
+### Role-Based Access Control
+
+The system uses JWT tokens with role information to control access:
+
+- **Admin users** (role: "admin") are automatically redirected to `/admin` dashboard
+- **Regular users** (role: "user") are automatically redirected to `/dashboard`
+- **Unauthenticated users** are redirected to the login page
+
+### Automatic Dashboard Routing
+
+After successful login, the system automatically determines the user's role and redirects them to the appropriate dashboard:
+
+1. **Admin Login** → Redirects to Admin Dashboard (`/admin`)
+   - Can manage rooms, tenants, and approve bookings
+   - Full system access
+
+2. **User Login** → Redirects to User Dashboard (`/dashboard`)
+   - Can browse available rooms and create bookings
+   - Can view and manage personal bookings
+   - Receives notifications about booking status
+
+### Notification System
+
+- When users create bookings, notifications are automatically created
+- Admins can see all booking requests in the Admin Dashboard
+- Admins can approve or reject bookings with one click
+- Users receive notifications when their bookings are approved/rejected
+- Room status automatically updates when bookings are approved
+
+### Enhanced Admin Workflow
+
+1. **Dashboard Overview**: Start with the Overview tab to see system statistics at a glance
+2. **Room Management**: Navigate to "Rooms" tab to create and manage room inventory
+3. **Tenant Management**: Use "Tenants" tab to add and manage tenant information
+4. **Booking Approvals**: Check "Notifications" tab for pending booking requests
+5. **Quick Actions**: Click "Book Now" on any room to pre-fill booking forms for users
+
+### Enhanced User Workflow
+
+1. **Personal Dashboard**: Overview tab shows your booking statistics and system status
+2. **Room Discovery**: Browse available rooms with filtering options in "Available Rooms" tab
+3. **Smart Booking**: Click "Book Now" on any room to auto-fill the booking form
+4. **Easy Booking**: Use the enhanced booking form with auto-duration calculation
+5. **Booking Management**: View and manage all your bookings in "My Bookings" tab
+6. **Status Updates**: Check "Notifications" tab for booking approval updates
 
 ## Project Structure
 
@@ -192,7 +255,20 @@ boardinghouse-system/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/      # React components
+│   │   │   ├── DashboardOverview.jsx    # Dashboard statistics component
+│   │   │   ├── AdminNotifications.jsx  # Admin booking notifications
+│   │   │   ├── AvailableRooms.jsx       # Room browsing with filters
+│   │   │   ├── BookingForm.jsx          # Enhanced booking form
+│   │   │   ├── MyBookings.jsx           # User booking management
+│   │   │   ├── RoomsList.jsx            # Admin room management
+│   │   │   ├── TenantsList.jsx          # Admin tenant management
+│   │   │   ├── UserNotifications.jsx    # User notifications
+│   │   │   └── Navbar.jsx               # Navigation component
 │   │   ├── pages/           # Page components
+│   │   │   ├── AdminDashboard.jsx       # Admin dashboard with overview
+│   │   │   ├── UserDashboard.jsx        # User dashboard with overview
+│   │   │   ├── Login.jsx                # Login page
+│   │   │   └── Register.jsx             # Registration page
 │   │   ├── context/         # React context (Auth)
 │   │   ├── App.jsx          # Main app component
 │   │   ├── main.jsx         # React entry point
@@ -313,7 +389,44 @@ For issues or questions:
 3. Check FastAPI documentation at https://fastapi.tiangolo.com
 4. Check React documentation at https://react.dev
 
-## Future Enhancements
+## Enhanced Features
+
+### 📊 Dashboard Overview
+- **Real-time Statistics**: Both admin and user dashboards now display comprehensive statistics
+- **Admin Overview**: Total rooms, available rooms, occupied rooms, and tenant count
+- **User Overview**: Personal booking statistics, pending/approved bookings, and available rooms
+- **Visual Cards**: Beautiful metric cards with icons and color-coded information
+
+### 🏠 Enhanced Room Management
+- **Room Filtering**: Filter available rooms by type (Single, Double, Suite)
+- **Room Pre-selection**: Click "Book Now" on any room to automatically pre-fill the booking form
+- **Enhanced UI**: Improved room cards with hover effects and better visual hierarchy
+- **Real-time Updates**: Room availability updates immediately after booking approval
+
+### 📝 Smart Booking System
+- **Auto-Duration Calculation**: Booking duration automatically calculated from selected dates
+- **Date Validation**: Prevents booking end dates before start dates
+- **Pre-filled Forms**: Room selection from Available Rooms tab auto-fills the booking form
+- **Success Callbacks**: Seamless navigation after successful booking creation
+
+### 📋 Enhanced Booking Management
+- **Detailed Booking Cards**: Comprehensive booking information with total pricing
+- **Status Management**: Clear visual indicators for pending, approved, rejected, and cancelled bookings
+- **Easy Cancellation**: One-click cancellation for pending bookings with confirmation
+- **Better Error Handling**: Toast notifications and loading states throughout
+
+### 🔔 Improved Notifications
+- **Enhanced Admin Notifications**: Better styling, loading states, and error handling
+- **User Notifications**: Personal booking status updates and system notifications
+- **Real-time Updates**: Automatic refresh after status changes
+- **Visual Status Indicators**: Color-coded badges and status information
+
+### 🎨 UI/UX Improvements
+- **Responsive Design**: Optimized for all screen sizes
+- **Loading States**: Skeleton loading and spinners throughout the application
+- **Error Handling**: Comprehensive error messages and retry mechanisms
+- **Smooth Animations**: Hover effects, transitions, and micro-interactions
+- **Consistent Styling**: Unified design system with Tailwind CSS
 
 - Payment integration
 - Email notifications

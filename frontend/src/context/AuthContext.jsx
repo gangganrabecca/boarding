@@ -26,11 +26,14 @@ export function AuthProvider({ children }) {
   const fetchUser = async () => {
     try {
       const response = await api.get("/auth/me")
-      setUser(response.data)
+      const userData = response.data
+      setUser(userData)
+      return userData
     } catch (error) {
       console.error("Failed to fetch user:", error)
       // Clear token if authentication fails
       logout()
+      throw error
     } finally {
       setLoading(false)
     }
@@ -49,7 +52,9 @@ export function AuthProvider({ children }) {
       setToken(access_token)
       api.defaults.headers.common["Authorization"] = `Bearer ${access_token}`
 
-      await fetchUser()
+      // Fetch user data and return it directly instead of relying on state
+      const userData = await fetchUser()
+      return userData
     } catch (error) {
       console.error("Login error:", error)
       throw error
@@ -70,7 +75,9 @@ export function AuthProvider({ children }) {
       setToken(access_token)
       api.defaults.headers.common["Authorization"] = `Bearer ${access_token}`
 
-      await fetchUser()
+      // Fetch user data and return it directly instead of relying on state
+      const userData = await fetchUser()
+      return userData
     } catch (error) {
       console.error("Registration error:", error)
       throw error

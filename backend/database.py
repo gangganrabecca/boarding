@@ -14,9 +14,9 @@ class Neo4jConnection:
         self.password = password
         self.driver = None
         self.max_connection_lifetime = 3600  # 1 hour
-        self.connection_timeout = 30  # 30 seconds
-        self.max_retry_attempts = 3
-        self.retry_delay = 1  # Start with 1 second delay
+        self.connection_timeout = 60  # Increased from 30 to 60 seconds
+        self.max_retry_attempts = 5  # Increased from 3 to 5
+        self.retry_delay = 2  # Increased from 1 to 2 seconds
 
     def connect(self):
         """Connect to Neo4j with proper configuration for Aura"""
@@ -28,15 +28,21 @@ class Neo4jConnection:
                 max_connection_lifetime=self.max_connection_lifetime,
                 max_connection_pool_size=10,
                 connection_timeout=self.connection_timeout,
-                connection_acquisition_timeout=60,
+                connection_acquisition_timeout=120,  # Increased from 60 to 120 seconds
                 # Note: trusted_certificates not needed with neo4j+s:// scheme
             )
             logger.info("Neo4j driver configured for Aura")
+
+            # Don't test connection immediately - let it be lazy
+            # Connection will be tested when first used
+
         except Exception as e:
             logger.error(f"Failed to create Neo4j driver: {e}")
+            self.driver = None
             raise
 
     def close(self):
+        """Close the Neo4j driver"""
         if self.driver:
             self.driver.close()
 
@@ -48,22 +54,13 @@ class Neo4jConnection:
             except Exception as e:
                 logger.warning(f"Database operation failed (attempt {attempt + 1}/{self.max_retry_attempts}): {e}")
 
-                # Check if it's a connection-related error that warrants a retry
-                if self._is_connection_error(e) and attempt < self.max_retry_attempts - 1:
-                    wait_time = self.retry_delay * (2 ** attempt)  # Exponential backoff
-                    logger.info(f"Retrying in {wait_time} seconds...")
-                    time.sleep(wait_time)
-                    continue
+                if attempt < self.max_retry_attempts - 1:
+                    time.sleep(self.retry_delay)
                 else:
-                    raise
+                    logger.error(f"Database operation failed after {self.max_retry_attempts} attempts")
 
-    def _is_connection_error(self, error):
-        """Check if error is connection-related"""
-        error_str = str(error).lower()
-        return any(term in error_str for term in [
-            'session expired', 'defunct connection', 'connection unavailable',
-            'failed to read', 'no data', 'connection reset', 'timeout'
-        ])
+        # This should never be reached, but just in case
+        raise Exception("Database operation failed after all retry attempts")
 
     def _convert_neo4j_types(self, data):
         """Convert Neo4j types to standard Python types for JSON serialization"""
@@ -99,6 +96,10 @@ class Neo4jConnection:
         def _create_user_internal():
             with self.driver.session() as session:
                 user_id = str(uuid.uuid4())
+                # Hash the password before storing
+                from auth import get_password_hash
+                hashed_password = get_password_hash(password)
+
                 query = """
                 CREATE (u:User {
                     id: $id,
@@ -111,7 +112,7 @@ class Neo4jConnection:
                 RETURN u.id as id
                 """
                 result = session.run(query, id=user_id, email=email, username=username,
-                                   password=password, role=role)
+                                   password=hashed_password, role=role)
                 return result.single()["id"]
 
         try:

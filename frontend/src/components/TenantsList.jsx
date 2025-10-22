@@ -53,16 +53,21 @@ export default function TenantsList() {
   }
 
   if (loading) {
-    return <div>Loading tenants...</div>
+    return (
+      <div className="flex items-center justify-center py-6 md:py-8">
+        <div className="animate-spin rounded-full h-6 w-6 md:h-8 md:w-8 border-b-2 border-primary"></div>
+        <span className="ml-2 text-sm md:text-base">Loading tenants...</span>
+      </div>
+    )
   }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">Tenants</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 md:mb-6">
+        <h2 className="text-xl md:text-2xl font-bold">Tenants</h2>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors"
+          className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors text-sm md:text-base w-full sm:w-auto"
         >
           {showForm ? "Cancel" : "Add Tenant"}
         </button>
@@ -70,7 +75,7 @@ export default function TenantsList() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-background border border-border rounded-lg p-4 mb-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">Name</label>
               <input
@@ -124,22 +129,24 @@ export default function TenantsList() {
 
           <button
             type="submit"
-            className="w-full bg-primary hover:bg-primary-hover text-white font-medium py-2 px-4 rounded-lg transition-colors"
+            className="w-full bg-primary hover:bg-primary-hover text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm md:text-base"
           >
             Add Tenant
           </button>
         </form>
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-3 md:space-y-4">
         {tenants.map((tenant) => (
           <div key={tenant.id} className="bg-background border border-border rounded-lg p-4">
-            <h3 className="font-semibold text-lg mb-2">{tenant.name}</h3>
+            <h3 className="font-semibold text-lg md:text-xl mb-2">{tenant.name}</h3>
             <div className="space-y-1 text-sm text-text-muted">
-              <p>Email: {tenant.email}</p>
-              <p>Phone: {tenant.phone}</p>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                <p><span className="font-medium">Email:</span> {tenant.email}</p>
+                <p><span className="font-medium">Phone:</span> {tenant.phone}</p>
+              </div>
               <p>
-                Room: {tenant.room.room_number} - {tenant.room.room_type}
+                <span className="font-medium">Room:</span> {tenant.room.room_number} - {tenant.room.room_type}
               </p>
             </div>
           </div>
