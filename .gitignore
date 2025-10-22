@@ -161,8 +161,7 @@ temp/
 *.sw?
 
 # Package manager lockfiles (keep only one)
-yarn.lock
-pnpm-lock.yaml
+package-lock.json
 
 # Local development
 *.local
